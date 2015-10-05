@@ -1,0 +1,13 @@
+<form method="post" action="/" enctype="multipart/form-data">
+    <input type="file" data-filename-placement="inside" title="Выберите файл" name="file"/>
+    <input type="submit">
+</form>
+
+
+[% FOR g IN group %]
+    <b>[% g.name %]</b><br>
+    [% FOR w IN g.word.sort %]
+        [% w %]<br>
+    [% END %]
+    <br>
+[% END %]
