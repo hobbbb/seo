@@ -5,13 +5,14 @@ use Spreadsheet::Read;
 
 our $VERSION = '0.1';
 
-get '/' => sub {
+get '/seo' => sub {
     template 'index';
 };
 
-post '/' => sub {
+post '/seo' => sub {
     my $file = request->upload('file');
 
+    my $res;
     my %hash;
     my $book = ReadData($file->{tempname})->[1];
 
@@ -55,7 +56,6 @@ post '/' => sub {
     }
 
     $i = 1;
-    my $res;
     for my $k (sort { $group{$b}{cnt} <=> $group{$a}{cnt}} keys %group) {
         my @arr;
         for my $n (@{$group{$k}{matches}}) {
