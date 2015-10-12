@@ -2,6 +2,7 @@ package seo;
 use Dancer ':syntax';
 use Data::Dumper;
 use Spreadsheet::Read;
+use Encode qw/decode/;
 
 our $VERSION = '0.1';
 
@@ -17,7 +18,7 @@ post '/seo' => sub {
     my $book = ReadData($file->{tempname})->[1];
 
     for my $row ($book->{minrow} .. $book->{maxrow}) {
-        my $text = $book->{"A$row"};
+        my $text = decode('utf8', $book->{"A$row"});
         $hash{$row} = {
             text    => $text,
             matches => {},
