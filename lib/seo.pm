@@ -23,6 +23,11 @@ post '/seo' => sub {
         my $text = $book->{"A$row"};
         my $freq = $book->{"B$row"} || 0;
 
+        my $flag = utf8::is_utf8($text);
+        unless ($flag) {
+            utf8::decode($text);
+        }
+
         my @words = split /\s+/, $text;
         $stemmer->stem_in_place(\@words);
         for my $w (@words) {
