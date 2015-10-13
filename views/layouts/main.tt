@@ -13,7 +13,7 @@
     [% FOR g IN group %]
         <b>[% g.name %]</b><br>
         [% FOR w IN g.word.sort %]
-            [% w %]<br>
+            [% w.keys.0 %] - [% w.values.0 %]<br>
         [% END %]
         <br>
     [% END %]

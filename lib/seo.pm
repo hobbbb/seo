@@ -2,7 +2,8 @@ package seo;
 use Dancer ':syntax';
 use Data::Dumper;
 use Spreadsheet::Read;
-use Encode qw/decode/;
+use Lingua::Stem::Snowball;
+# use Encode qw/decode/;
 
 our $VERSION = '0.1';
 
@@ -14,11 +15,56 @@ post '/seo' => sub {
     my $file = request->upload('file');
 
     my $res;
-    my %hash;
     my $book = ReadData($file->{tempname})->[1];
+    my $stemmer = Lingua::Stem::Snowball->new(lang => 'ru', encoding => 'UTF-8');
 
+    my (%hash, %tmp);
     for my $row ($book->{minrow} .. $book->{maxrow}) {
-        my $text = decode('utf8', $book->{"A$row"});
+        my $text = $book->{"A$row"};
+        my $freq = $book->{"B$row"} || 0;
+
+        my @words = split /\s+/, $text;
+        $stemmer->stem_in_place(\@words);
+        for my $w (@words) {
+            push @{$tmp{$w}{row}}, $row;
+            $tmp{$w}{cnt}++;
+        }
+
+        $hash{$row} = {
+            text => $text,
+            freq => $freq,
+            stem => \@words,
+        };
+    }
+
+    for my $w (sort { $tmp{$b}{cnt} <=> $tmp{$a}{cnt}} keys %tmp) {
+        next if $tmp{$w}{cnt} <= 1;
+        # print "$w - " . Dumper $tmp{$w};
+        my @arr;
+        for my $row (@{$tmp{$w}{row}}) {
+           push @arr, { $hash{$row}{text} => $hash{$row}{freq} };
+        }
+        push @$res, {
+            name => "Группа",
+            word => \@arr,
+        };
+    }
+
+    return template 'index' => {
+        group => $res,
+    };
+};
+
+post '/seo_old' => sub {
+    my $file = request->upload('file');
+
+    my $res;
+    my $book = ReadData($file->{tempname})->[1];
+=c
+    my %hash;
+    for my $row ($book->{minrow} .. $book->{maxrow}) {
+        # my $text = decode('utf8', $book->{"A$row"});
+        my $text = $book->{"A$row"};
         $hash{$row} = {
             text    => $text,
             matches => {},
@@ -68,7 +114,9 @@ post '/seo' => sub {
         };
         $i++;
     }
+=cut
 
+=c
     sub step1 {
         my $n = shift;
 
@@ -107,6 +155,7 @@ post '/seo' => sub {
 
         # return $match;
     }
+=cut
 
     return template 'index' => {
         group => $res,
