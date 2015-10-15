@@ -17,7 +17,9 @@ post '/seo' => sub {
     my $book = ReadData($file->{tempname})->[1];
     my $stemmer = Lingua::Stem::Snowball->new(lang => 'ru', encoding => 'UTF-8');
 
-    my ($hash, $multi, $singl);
+    our ($hash, $uniq);
+
+    my ($multi, $singl);
     for my $row ($book->{minrow} .. $book->{maxrow}) {
         my $text = $book->{"A$row"};
         my $freq = $book->{"B$row"} || 0;
@@ -51,21 +53,24 @@ post '/seo' => sub {
 
     #die Dumper $multi->{horeca};
 
-    push @$res, func($multi, $hash);
-    push @$res, func($singl, $hash);
+    push @$res, func($multi);
+    push @$res, func($singl);
 
     sub func {
-        my ($h, $h2) = @_;
+        my $h = shift;
 
         my @ret = ();
         for my $w (sort { $h->{$b}{cnt} <=> $h->{$a}{cnt}} keys %$h) {
-            # print "$w - " . Dumper $multi{$w};
+            print "$w - " . Dumper $h->{$w};
+            last;
             my @arr;
             for my $row (sort keys %{$h->{$w}{row}}) {
-               push @arr, { $h2->{$row}{text} => $h2->{$row}{freq} };
+                next if exists $uniq->{$row};
+                push @arr, { $hash->{$row}{text} => $hash->{$row}{freq} };
+                $uniq->{$row} = 1;
             }
             push @ret, {
-                name => "Группа",
+                name => $w,
                 word => \@arr,
             };
         }
