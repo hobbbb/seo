@@ -3,7 +3,6 @@ use Dancer ':syntax';
 use Data::Dumper;
 use Spreadsheet::Read;
 use Lingua::Stem::Snowball;
-# use Encode qw/decode/;
 
 our $VERSION = '0.1';
 
@@ -18,41 +17,59 @@ post '/seo' => sub {
     my $book = ReadData($file->{tempname})->[1];
     my $stemmer = Lingua::Stem::Snowball->new(lang => 'ru', encoding => 'UTF-8');
 
-    my (%hash, %tmp);
+    my ($hash, $multi, $singl);
     for my $row ($book->{minrow} .. $book->{maxrow}) {
         my $text = $book->{"A$row"};
         my $freq = $book->{"B$row"} || 0;
+        next if $text =~ /^#/;
 
         my $flag = utf8::is_utf8($text);
         unless ($flag) {
             utf8::decode($text);
         }
 
-        my @words = split /\s+/, $text;
-        $stemmer->stem_in_place(\@words);
-        for my $w (@words) {
-            push @{$tmp{$w}{row}}, $row;
-            $tmp{$w}{cnt}++;
+        my @stem = split /\s+/, $text;
+        $stemmer->stem_in_place(\@stem);
+
+        if (scalar @stem > 1) {
+            for my $s (@stem) {
+                $multi->{$s}{row}{$row} = 1;
+                $multi->{$s}{cnt}++;
+            }
+        }
+        else {
+            $singl->{$stem[0]}{row}{$row} = 1;
+            $singl->{$stem[0]}{cnt}++;
         }
 
-        $hash{$row} = {
+        $hash->{$row} = {
             text => $text,
             freq => $freq,
-            stem => \@words,
+            stem => \@stem,
         };
     }
 
-    for my $w (sort { $tmp{$b}{cnt} <=> $tmp{$a}{cnt}} keys %tmp) {
-        next if $tmp{$w}{cnt} <= 1;
-        # print "$w - " . Dumper $tmp{$w};
-        my @arr;
-        for my $row (@{$tmp{$w}{row}}) {
-           push @arr, { $hash{$row}{text} => $hash{$row}{freq} };
+    #die Dumper $multi->{horeca};
+
+    push @$res, func($multi, $hash);
+    push @$res, func($singl, $hash);
+
+    sub func {
+        my ($h, $h2) = @_;
+
+        my @ret = ();
+        for my $w (sort { $h->{$b}{cnt} <=> $h->{$a}{cnt}} keys %$h) {
+            # print "$w - " . Dumper $multi{$w};
+            my @arr;
+            for my $row (sort keys %{$h->{$w}{row}}) {
+               push @arr, { $h2->{$row}{text} => $h2->{$row}{freq} };
+            }
+            push @ret, {
+                name => "Группа",
+                word => \@arr,
+            };
         }
-        push @$res, {
-            name => "Группа",
-            word => \@arr,
-        };
+        return @ret;
     }
 
     return template 'index' => {
