@@ -50,94 +50,114 @@ post '/seo' => sub {
         };
     }
 
-    # my (%hh, $i);
-    # for (sort { $multi->{$b}{cnt} <=> $multi->{$a}{cnt}} keys %$multi) {
-    #     $i++;
-    #     $hh{$i} = $multi->{$_}{row};
-    # }
-
-    # for my $i (2 .. scalar keys %hh) {
-    #     my @a = ();
-    #     for my $row (keys %{$hh{$i}}) {
-    #         if (grep(/^$row$/, keys %{$hh{1}})) {
-    #             push @a, { $hash->{$row}{text} => $hash->{$row}{freq} };
-    #             delete $hh{1}{$row};
-    #             delete $hh{$i}{$row};
-    #         }
-    #     }
-    #     push @$res, {
-    #         name => "g$i",
-    #         word => \@a,
-    #     };
-    # }
-
-    our $arr;
+    # Присваем приоритет словам в зависимости от их частоты
+    my $priority;
+    my $i = 0;
     for (sort { $multi->{$b}{cnt} <=> $multi->{$a}{cnt}} keys %$multi) {
-       push @$arr, $multi->{$_}{row};
+       $i++;
+       $priority->{$_} = $i;
     }
 
-    bas();
-
-    sub bas {
-        unless (scalar keys %{$arr->[0]}) {
-            shift @$arr;
-            bas();
+    # Группируем слова ко ключу - первые 2 слова по приоритету
+    my $v;
+    for my $row (keys %$hash) {
+        my @p;
+        for my $s (@{$hash->{$row}->{stem}}) {
+            push @p, $priority->{$s};
         }
 
-        for my $i (1 .. scalar @$arr) {
-           my @a = ();
-           for my $row (keys %{$arr->[$i]}) {
-               if (grep(/^$row$/, keys %{$arr->[0]})) {
-                    push @a, { $hash->{$row}{text} => $hash->{$row}{freq} };
-                    delete $arr->[$i]{$row};
+        next if scalar @p < 2; # пропускаем однословные фразы
 
-                    delete $arr->[0]{$row};
-                    unless (scalar keys %{$arr->[0]}) {
-                        shift @$arr;
-                        bas();
-                    }
-               }
-           }
-           if (@a) {
-               push @$res, {
-                   name => "group $i",
-                   word => \@a,
-               };
-           }
-        }
+        my $k = join ' ', (sort { $a <=> $b } @p)[0..1];
+        push @{$v->{$k}{row}}, { $hash->{$row}{text} => $hash->{$row}{freq} };
+        $v->{$k}{cnt}++;
     }
 
-    # die Dumper $arr;
+    # Собираем результат
+    $i = 0;
+    for my $k (sort { $v->{$b}{cnt} <=> $v->{$a}{cnt}} keys %$v) {
+        $i++;
+        push @$res, {
+            name => "group $i",
+            word => $v->{$k}{row},
+        };
+    }
 
-
-    #push @$res, func($multi);
-    #push @$res, func($singl);
-
-    sub func {
-        my $h = shift;
-
-        my @ret = ();
-        for my $w (sort { $h->{$b}{cnt} <=> $h->{$a}{cnt}} keys %$h) {
-           # print "$w - " . Dumper $h->{$w};
-           # last;
-            my @arr;
-            for my $row (sort keys %{$h->{$w}{row}}) {
-                next if exists $uniq->{$row};
-                push @arr, { $hash->{$row}{text} => $hash->{$row}{freq} };
-                $uniq->{$row} = 1;
-            }
-            push @ret, {
-                name => $w,
-                word => \@arr,
-            };
+    # Собираем результат по однословным фразам
+    for my $w (sort { $singl->{$b}{cnt} <=> $singl->{$a}{cnt}} keys %$singl) {
+        my @arr;
+        for my $row (sort keys %{$singl->{$w}{row}}) {
+            push @arr, { $hash->{$row}{text} => $hash->{$row}{freq} };
         }
-        return @ret;
+        $i++;
+        push @$res, {
+            name => "group $i",
+            word => \@arr,
+        };
     }
 
     return template 'index' => {
         group => $res,
     };
 };
+
+    # our $arr;
+    # for (sort { $multi->{$b}{cnt} <=> $multi->{$a}{cnt}} keys %$multi) {
+    #    push @$arr, $multi->{$_}{row};
+    # }
+    # bas();
+    # sub bas {
+    #     unless (scalar keys %{$arr->[0]}) {
+    #         shift @$arr;
+    #         bas();
+    #     }
+
+    #     for my $i (1 .. scalar @$arr) {
+    #        my @a = ();
+    #        for my $row (keys %{$arr->[$i]}) {
+    #            if (grep(/^$row$/, keys %{$arr->[0]})) {
+    #                 push @a, { $hash->{$row}{text} => $hash->{$row}{freq} };
+    #                 delete $arr->[$i]{$row};
+
+    #                 delete $arr->[0]{$row};
+    #                 unless (scalar keys %{$arr->[0]}) {
+    #                     shift @$arr;
+    #                     bas();
+    #                 }
+    #            }
+    #        }
+    #        if (@a) {
+    #            push @$res, {
+    #                name => "group $i",
+    #                word => \@a,
+    #            };
+    #        }
+    #     }
+    # }
+
+    # die Dumper $arr;
+
+    #push @$res, func($multi);
+    #push @$res, func($singl);
+
+    # sub func {
+    #     my $h = shift;
+
+    #     my @ret = ();
+    #     for my $w (sort { $h->{$b}{cnt} <=> $h->{$a}{cnt}} keys %$h) {
+    #         my @arr;
+    #         for my $row (sort keys %{$h->{$w}{row}}) {
+    #             next if exists $uniq->{$row};
+    #             push @arr, { $hash->{$row}{text} => $hash->{$row}{freq} };
+    #             $uniq->{$row} = 1;
+    #         }
+    #         push @ret, {
+    #             name => $w,
+    #             word => \@arr,
+    #         };
+    #     }
+    #     return @ret;
+    # }
 
 post '/seo_old' => sub {
     my $file = request->upload('file');
