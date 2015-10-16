@@ -13,11 +13,10 @@ get '/seo' => sub {
 post '/seo' => sub {
     my $file = request->upload('file');
 
-    my $res;
     my $book = ReadData($file->{tempname})->[1];
     my $stemmer = Lingua::Stem::Snowball->new(lang => 'ru', encoding => 'UTF-8');
 
-    our ($hash, $uniq);
+    our ($res, $hash, $uniq);
 
     my ($multi, $singl);
     for my $row ($book->{minrow} .. $book->{maxrow}) {
@@ -51,18 +50,76 @@ post '/seo' => sub {
         };
     }
 
-    #die Dumper $multi->{horeca};
+    # my (%hh, $i);
+    # for (sort { $multi->{$b}{cnt} <=> $multi->{$a}{cnt}} keys %$multi) {
+    #     $i++;
+    #     $hh{$i} = $multi->{$_}{row};
+    # }
 
-    push @$res, func($multi);
-    push @$res, func($singl);
+    # for my $i (2 .. scalar keys %hh) {
+    #     my @a = ();
+    #     for my $row (keys %{$hh{$i}}) {
+    #         if (grep(/^$row$/, keys %{$hh{1}})) {
+    #             push @a, { $hash->{$row}{text} => $hash->{$row}{freq} };
+    #             delete $hh{1}{$row};
+    #             delete $hh{$i}{$row};
+    #         }
+    #     }
+    #     push @$res, {
+    #         name => "g$i",
+    #         word => \@a,
+    #     };
+    # }
+
+    our $arr;
+    for (sort { $multi->{$b}{cnt} <=> $multi->{$a}{cnt}} keys %$multi) {
+       push @$arr, $multi->{$_}{row};
+    }
+
+    bas();
+
+    sub bas {
+        unless (scalar keys %{$arr->[0]}) {
+            shift @$arr;
+            bas();
+        }
+
+        for my $i (1 .. scalar @$arr) {
+           my @a = ();
+           for my $row (keys %{$arr->[$i]}) {
+               if (grep(/^$row$/, keys %{$arr->[0]})) {
+                    push @a, { $hash->{$row}{text} => $hash->{$row}{freq} };
+                    delete $arr->[$i]{$row};
+
+                    delete $arr->[0]{$row};
+                    unless (scalar keys %{$arr->[0]}) {
+                        shift @$arr;
+                        bas();
+                    }
+               }
+           }
+           if (@a) {
+               push @$res, {
+                   name => "group $i",
+                   word => \@a,
+               };
+           }
+        }
+    }
+
+    # die Dumper $arr;
+
+
+    #push @$res, func($multi);
+    #push @$res, func($singl);
 
     sub func {
         my $h = shift;
 
         my @ret = ();
         for my $w (sort { $h->{$b}{cnt} <=> $h->{$a}{cnt}} keys %$h) {
-            print "$w - " . Dumper $h->{$w};
-            last;
+           # print "$w - " . Dumper $h->{$w};
+           # last;
             my @arr;
             for my $row (sort keys %{$h->{$w}{row}}) {
                 next if exists $uniq->{$row};
